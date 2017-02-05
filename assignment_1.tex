@@ -17,13 +17,13 @@
 \item
 \begin{enumerate}
 
-\item Replacing a single, shared IP processing queue with queues-per-socket helps by eliminating the need for a software interrupt after the hardware interrupt, because the responsibility for sending the packet to a destination queue is shifted to the hardware interrupt handler. This reduces the amount of context-switching the CPU must perform. One of the issues with implementing this, is that it will add overhead to the hardware interrupt handler, as it will now have to do the IP and TCP processing determine which of the destination buffers must receive the packet.
+\item Replacing a single IP processing queue with queues-per-socket helps by eliminating the need for a software interrupt after the hardware interrupt. The responsibility for sending the packet to a destination queue is shifted to the hardware interrupt handler, which reduces the amount of context-switching the CPU must perform. One of the issues with implementing this, is that it will add overhead to the hardware interrupt handler, as it will now have to do the IP and TCP processing determine which of the destination buffers will receive a packet.
 
-\item  Implementing protocol processing as part of the application, instead of having a software interrupt, would again reduce the amount of context-switching the CPU has to do. However, this method is ineffective for two reasons. Firstly, this would increase the size and overhead of all socket-using applications, as they would now be responsible for IP and TCP processing. Secondly, this would slow down applications, as they would have to wait until they have priority over the CPU to do the processing.
+\item Implementing protocol processing as part of the application, instead of having a software interrupt, would also reduce the amount of context-switching the CPU has to do. However, this method is ineffective for two reasons. Firstly, this would increase the size and overhead of all socket-using applications, as they would now be responsible for IP and TCP processing. Secondly, this would slow down applications, as they would have to wait until they have priority over the CPU to do the packet processing.
 
 \end{enumerate}
 
-\item The thread pool architecture works best for short requests. Since creating a new thread requires more overhead than assigning an idle thread from a pool, thread pools work well when the number of packets/tasks is equal to or smaller than the size of the pool. The new-thread-per-packet architecture is better only when there are few, long-running tasks to run; in which case, spawning a large pool of threads to re-use would not have any inherent benefit over spawning threads as needed.
+\item The thread pool architecture works best for short requests. Since creating a new thread requires more overhead than assigning an idle thread from a pool, thread pools work well when there is a large number of small tasks to run. The new-thread-per-packet architecture is better only when there are few, long-running tasks to run; in which case, spawning a large pool of threads to re-use would not have any inherent benefit over spawning threads as needed.
 
 \item
 \begin{enumerate}
@@ -34,7 +34,7 @@
 
 \item Yes, a client can open three or more simultaneous connections with a given server. (Note that RFC 2616 recommends that they shouldn't have more than two connections at a time.)
 
-\item Because HTTP is stateless, the client doesn't know the server's state and the server doesn't know the client's state. Therefore, it is possible that one side closes the connection for being idle for too long while the other side just finishes processing and starts to send data.
+\item Because HTTP is stateless, the client doesn't know the server's state and the server doesn't know the client's state. Therefore, it is possible that one side closes the connection for being idle for too long, while the other side just finishes processing and starts to send data.
 
 \end{enumerate}
 
@@ -55,24 +55,21 @@
 
 \end{enumerate}
 
-\item Let  $ T_p $ denote the propagation delay of the channel. $ T_p = \frac{\SI{10}{\metre}}{\SI{3e8}{\metre\per\second}} = \SI{0.03}{\micro\second} $
+\item Let $ T_p $ denote the propagation delay of the channel.
+$$ T_p = \frac{\SI{10}{\metre}}{\SI{3e8}{\metre\per\second}} = \SI{0.03}{\micro\second} $$
 
-Firstly, consider the time taken to download the objects over parallel, non-persistent connections. The total time taken to transmit objects over a non-persistent connection is given by the time taken to send a request to connect, plus the time to send an acknowledgement, plus the time taken to request an object, plus the time taken to send the object. Let $ T_1(s, b) $ represent the download time for an object over this connection, where $ s $ is the size of the object being downloaded, and $ b $ is the bitrate for the download:
-
+Firstly, consider the time taken to download the objects over parallel, non-persistent connections. The total time taken to transmit an object over a non-persistent connection is given by the time taken to send a request to connect, plus the time to send an acknowledgement, plus the time taken to request an object, plus the time taken to send the object. Let $ T_1(s, b) $ represent the download time for an object over this connection, where $ s $ is the size of the object being downloaded, and $ b $ is the bitrate for the download:
 $$ T_1(s,b) = (T_{connect} + T_p) + (T_{acknowledge} + T_p) + (T_{request} + T_p) + (T_{object} + T_p) $$
 
 Which in this case, simplifies to:
-
 $$ T_1(s,b) = (\frac{\SI{200}{\bit}}{\SI[parse-numbers = false]{b}{\bit\per\second}} + T_p) + (\frac{\SI{200}{\bit}}{\SI[parse-numbers = false]{b}{\bit\per\second}} + T_p) + (\frac{\SI{200}{\bit}}{\SI[parse-numbers = false]{b}{\bit\per\second}} + T_p) + (\frac{\SI[parse-numbers = false]{s}{\bit}}{\SI[parse-numbers = false]{b}{\bit\per\second}} + T_p) $$
 $$ T_1(s,b) = \frac{600 + s}{b} + 4T_p $$
 
 Thus, the total time for the request is given by the time taken for downloading the first object, and the time for downloading one of the 10 referenced objects:
-
 $$ T_{total} = T_1(\SI{100}{\kilo\bit}, \SI{150}{\bit\per\second}) + T_1(\SI{100}{\kilo\bit}, \SI{15}{\bit\per\second}) $$
 $$ T_{total} = \SI{7377}{\second} + 8T_p $$
 
 For a persistent HTTP connection, the setup, acknowledge, and request packets are not needed for the 10 referenced objects. So, the time for a persistent connection, with downloads in series, is given by:
-
 $$ T_{total} = T_1(\SI{100}{\kilo\bit}, \SI{150}{\bit\per\second}) + 10(\frac{\SI{200}{\bit}}{\SI{150}{\bit\per\second}} + T_p + \frac{\SI{100}{\kilo\bit}}{\SI{150}{\bit\per\second}} + T_p) $$
 $$ T_{total} = \SI{7351}{\second} + 24T_p $$
 
@@ -83,11 +80,15 @@ Since $ T_p $ is negligible compared to the transmission delay, and $ \Delta T =
 
 \item A WHOIS is a public database which allows you to find information regarding domains, such as who it is registered to, who the registrar is, and who you can contact about the domain name. WHOIS databases are run by registrars and registries; for example, the Public Interest Registry maintains the .org registry.
 
-\item Using whois.cira.ca: google.ca has name Domain Name Servers ns1.google.com, ns2.google.com, ns3.google.com, and ns4.google.com. duckduckgo.com has Domain Name Servers ns0.dnsmadeeasy.com, ns1.dnsmadeeasy.com, ns2.dnsmadeeasy.com, ns3.dnsmadeeasy.com, and ns4.dnsmadeeasy.com.
+\item Using whois.cira.ca: one of google.ca's Domain Name Servers is ns1.google.com (216.239.32.10). One of duckduckgo.com's Domain Name Servers is ns0.dnsmadeeasy.com (208.94.148.2).
 
-\item The local Carleton DNS server is phoenix.sce.carleton.ca, address 134.117.56.1. One of google.ca's DNS servers is ns1.google.com, address 216.239.32.10. One of duckduckgo.com's DNS servers is ns0.dnsmadeeasy.com, address 208.94.148.2.
+\item The local Carleton DNS server is phoenix.sce.carleton.ca, address 134.117.56.1.
 
-Ugh not quite done this yet
+The A-type queries simply returned the address record for the server. For example, querying ns0.dnsmadeeasy.com returned the address 208.94.148.2.
+
+The MX- and NS-type queries returned much more information than A-type queries. They both returned information such as responsible mail server (for the SCE network, this is naren.sce.carleton.ca), the refresh rate, and the default TTL.
+
+The difference between MX- and NS-type queries is that NS-type will only return information on the mail server, whereas MX-type queries return information on all DNS servers for a domain.
 
 \item The Carleton web server only has one IP address. I was unable to locate a web server with multiple IP addresses.
 
