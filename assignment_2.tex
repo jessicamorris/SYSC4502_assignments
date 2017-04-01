@@ -66,6 +66,7 @@ Thus, the maximum number of nodes in a binary tree of height $ h $ is $ 2^{h+1} 
 
 \declinst{send}{Sender}{}
 \declinst{rcv}{Receiver}{}
+
 \mess{pkt0}{send}{rcv}[1]
 \msccomment{Send pkt0}{send}
 \nextlevel
@@ -98,37 +99,127 @@ Thus, the maximum number of nodes in a binary tree of height $ h $ is $ 2^{h+1} 
 
 \item
 \begin{enumerate}
-\item Happy path MSC:
+\item Happy path MSC: \\
+\begin{msc}{}
+\setlength{\envinstdist}{2.5\envinstdist}
 
+\declinst{a}{A}{}
+\declinst{c}{C}{}
+\declinst{b}{B}{}
 
-Sad path 1: 
-\item FSM for A: \\
+\mess{pkt}{a}{c}[1]
+\nextlevel
+\mess{ackA}{c}{a}[1]
+\mess{ackA}{c}{b}[1]
+\nextlevel
+\nextlevel
+\mess{pkt}{b}{c}[1]
+\nextlevel
+\mess{ackB}{c}{a}[1]
+\mess{ackB}{c}{b}[1]
+\nextlevel
+
+\end{msc}\\
+The receiver (C) should notify both senders when it has received a packet from one sender. e.g. Receive a packet from B, then send ACK B to A and B, so that B knows it can yield until an ACK A because it is A's turn to send data, and A knows that it is its turn to send data.\\
+
+Sad path 1, a data packet is lost or corrupted: \\
+\begin{msc}{}
+\setlength{\envinstdist}{2.5\envinstdist}
+
+\declinst{a}{A}{}
+\declinst{c}{C}{}
+\declinst{b}{B}{}
+
+\mess{pkt}{a}{c}[1]
+\nextlevel
+\mess{ackA}{c}{a}[1]
+\mess{ackA}{c}{b}[1]
+\nextlevel
+\nextlevel
+\lost{}{}{b}
+\msccomment[r]{start timer}{b}
+\nextlevel
+\nextlevel
+\msccomment[r]{timeout, resend}{b}
+\mess{pkt}{b}{c}[1]
+\nextlevel
+\mess{ackB}{c}{a}[1]
+\mess{ackB}{c}{b}[1]
+\nextlevel
+
+\end{msc} \\
+Senders should start a timer after sending data to C; if the data is not acknowledged before timeout, resend the data.\\
+
+Sad path 2, data gets duplicated by sender or in transmission:\\
+\begin{msc}{}
+\setlength{\envinstdist}{2.5\envinstdist}
+
+\declinst{a}{A}{}
+\declinst{c}{C}{}
+\declinst{b}{B}{}
+
+\mess{pkt0}{a}{c}[1]
+\nextlevel
+\mess{pkt0}{a}{c}[1]
+\nextlevel
+\mess{ackA, 0}{c}{a}[1]
+\mess{ackA, 0}{c}{b}[1]
+\nextlevel
+\mess{ackA, 0}{c}{a}[1]
+\mess{ackA, 0}{c}{b}[1]
+\nextlevel
+\mess{pkt0}{b}{c}[1]
+\nextlevel
+\mess{ackB, 0}{c}{a}[1]
+\mess{ackB, 0}{c}{b}[1]
+\nextlevel
+
+\end{msc}\\
+
+The receiver (C) needs to notify the sender of which sequence number they are acknowledging. Duplicate data should be acknowledged, so that the sender does not send it again.
+ 
+\item FSM for sender (A or B): \\
+% todo: this clusterfuck ain't done yet
 \begin{tikzpicture}[->,>=stealth',shorten >=1pt,auto,node distance=3.8cm,
                     semithick,text width=2.5cm]
   \tikzstyle{every state}=[fill=black,draw=none,text=white,align=center]
 
-  \node[state][text width=2.5cm] (A)  {wait for B or C ACK};
-  \node[state][text width=1cm]   (B) [above right=1.8cm and 6cm of A] {wait for\\B ACK};
-  \node[state][text width=1cm]   (C) [below right=1.8cm and 6cm of A] {wait for\\C ACK};
+  \node[state][text width=2.5cm] (A)  {wait for A or B ACK};
+  \node[state][text width=1cm]   (B) [above right=3cm and 6cm of A] {wait for\\A ACK};
+  \node[state][text width=1cm]   (C) [below right=3cm and 6cm of A] {wait for\\B ACK};
 
-  \path (A) edge [loop above] node {\scriptsize rdt\_rcv(pkt) \&\& corrupt OR\\rdt\_rcv(pkt) \&\& notCorrupt \&\& notAck} (A);
-  \path (A) edge [loop left] node {\scriptsize timeout:\\udt\_send(pkt, seqnum)\\start timer} (A);
-  \path (A) edge node {\scriptsize rdt\_rcv(pkt) \&\& notCorrupt \&\& isAckB\\||\\seqnum++\\udt\_send(pkt, seqnum)\\start timer} (B);
-  \path (A) edge node {\scriptsize rdt\_rcv(pkt) \&\& notCorrupt \&\& isAckC\\||\\seqnum++\\udt\_send(pkt, seqnum)\\start timer} (C);
-  \path (B) edge [loop right] node {\scriptsize timeout:\\udt\_send(pkt, seqnum)\\start timer} (B);
-  \path (B) edge [loop below] node {\scriptsize error:\\corrupt packet, or not AckC} (B);
+  \path (A) edge [loop above] node {\scriptsize Bad packet:\\rdt\_rcv(pkt) \&\& corrupt OR\\rdt\_rcv(pkt) \&\& notAck} (A);
+  \path (A) edge [loop below] node {\scriptsize Timeout:\\udt\_send(pkt, seqnum)\\start timer} (A);
+  \path (A) edge[bend left=5] node {\scriptsize rdt\_rcv(pkt) \&\& notCorrupt \&\& isAckB\\||\\seqnum++\\udt\_send(pkt, seqnum)\\start timer} (B);
+  \path (A) edge[bend left=5] node {\scriptsize rdt\_rcv(pkt) \&\& notCorrupt \&\& isAckC\\||\\seqnum++\\udt\_send(pkt, seqnum)\\start timer} (C);
+  \path (B) edge[bend left=5] node {\scriptsize rdt\_rcv(pkt) \&\& notCorrupt \&\& isAckA} (A);
+  \path (C) edge[bend left=5] node {\scriptsize rdt\_rcv(pkt) \&\& notCorrupt \&\& isAckB} (A);
+  \path (B) edge [loop right] node {\scriptsize Timeout:\\udt\_send(pkt, seqnum)\\start timer} (B);
+  \path (B) edge [loop below] node {\scriptsize Error:\\rdt\_rcv(pkt) \&\& corrupt OR notAckC} (B);
+  \path (C) edge [loop right] node {\scriptsize Timeout} (C);
+  \path (C) edge [loop below] node {\scriptsize Error} (C);
 \end{tikzpicture}
 
-FSM for C:
+FSM for receiver (C): \\
+\begin{tikzpicture}[->,>=stealth',shorten >=1pt,auto,node distance=3.8cm,
+                    semithick,text width=2cm]
+  \tikzstyle{every state}=[fill=black,draw=none,text=white,align=center]
 
-\item For sender-to-receiver data, the packet format is: seqnum $\vert$ data. For receiver-to-sender control, the packet format is: acknum $\vert$ (B or C).
-\item 6d
+  \node[state][text width=2.5cm] (A)  {wait for data seqnum};
+
+  \path (A) edge [loop below] node {\scriptsize Corrupt packet:\\rdt\_rcv(rcvpkt) \&\& corrupt\\||} (A);
+  \path (A) edge [loop right] node {\scriptsize Good packet:\\rdt\_rcv(rcvpkt) \&\& notCorrupt \&\& pkt\_seqnum = seqnum\\||\\udt\_send(ACK, seqnum, A or B)\\seqnum++} (A);
+  \path (A) edge [loop left] node {\scriptsize Out of order:\\rdt\_rcv(rcvpkt) \&\& notCorrupt \&\& pkt\_seqnum != seqnum\\||\\udt\_send(ACK, pkt\_seqnum, A or B)} (A);
+\end{tikzpicture}
+
+\item For sender-to-receiver data, the packet format is: seqnum $\vert$ data. For receiver-to-sender control, the packet format is: acknum $\vert$ sender (A or B).
+\item Interfaces on the sender: rdt\_rcv(rcvpkt), rdt\_send(data) to upper layer, udt\_send(src, dst, pkt, seqnum) call to lower layer. Interfaces on the receiver: rdt\_rcv(rcvpkt), udt\_send(src, dst, ACK, seq) to lower layer.
 \end{enumerate}
 
 \item
 \begin{enumerate}
 \item Consider a server which distributes the data rate of the channel evenly to each peer as $ \frac{u_s}{N} $ bits per second, resulting in the total bandwidth used being $ \frac{u_s}{N} \times N = u_s $. This data rate will not exceed the rate at which clients can receive bits, as it is given that $ \frac{u_s}{N} \leq d_{min} $. If each client is downloading a file of size $ F $ bits, then it will take $ \frac{F}{u_s/N} = \frac{NF}{u_s} $ seconds for each client to download their file.
-\item Consider a server which distributes the data rate of the channel to each peer as $ d_{min} $ bits per second, giving a total bandwidth of $ Nd_{min} $. This will not exceed the bandwidth that the server can trasmit, as it is given that $ u_s \geq Nd_{min} $. If each client is downloading a file of size $ F $ bits, then it will take $ \frac{F}{d_min} $ seconds for each client to download their file.
+\item Consider a server which distributes the data rate of the channel to each peer as $ d_{min} $ bits per second, giving a total bandwidth of $ Nd_{min} $. This will not exceed the bandwidth that the server can trasmit, as it is given that $ u_s \geq Nd_{min} $. If each client is downloading a file of size $ F $ bits, then it will take $ \frac{F}{d_{min}} $ seconds for each client to download their file.
 \end{enumerate}
 
 \end{enumerate}
