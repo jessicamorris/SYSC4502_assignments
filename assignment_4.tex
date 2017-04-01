@@ -95,15 +95,29 @@ $$ c = 17 $$
 \begin{tabular}{|c|c|}
     \hline
     IV & 11 \\ \hline
-    message &  \\ \hline
-    ICV & 1010 \\ \hline
+    message & 01011010 \\ \hline
+    ICV & 0010 \\ \hline
 \end{tabular}
 
-\item b
+\item Receiver has key = 1010. Since the IV (11) is unencrypted at the beginning of the packet, the receiver uses the 
+same keystream to decrypt the packet. XOR'ing the received message + ICV with the keystream results in:
+$$ 010110100010 \oplus 111110101000 = 101000001010 $$
+The first eight bits give $m = 10100000$ and the last four bits give $ICV=1010$.
 
-\item c
+\item If Trudy flips the first ICV bit, then she must also flip either the first or the fifth bit of the 
+message.
 
-\item d
+\item The part (a) WEP packet with the first message bit flipped and the first ICV bit flipped is $110110101010$. 
+XOR'ing with the 101011 keystream gives:
+$$ 1101 1010 1010 \oplus 1111 1010 1000 = 0010 0000 0010 $$
+
+This gives $m=0010 0000$ and $ICV=0010$. The receiver computes the ICV for $m$ to be $0010 \oplus 0000 = 0010$, 
+so the ICV check passes.
+
+Alternately, with the fifth message bit flipped, the receiver receives:
+$$ 0101 0010 1010 \oplus 111110101000 = 101010000010 $$
+This gives $m=1010 1000$ and $ICV=0010$. The receiver computs the ICV for $m$ to be $1010 \oplus 1000 = 0010$, so the 
+ICV check passes.
 
 \end{enumerate}
 
