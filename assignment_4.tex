@@ -1,10 +1,15 @@
 \documentclass{article}
 
+\usepackage[margin=2.5cm]{geometry}
+
 \usepackage[scientific-notation=true, binary-units=true]{siunitx}
 \sisetup{per-mode=fraction}%
 \sisetup{scientific-notation=false}%
 \usepackage{amsmath}
 \usepackage{forest}
+
+\usepackage{afterpage}
+\usepackage{pdflscape}
 
 \usepackage{tikz}
 \usetikzlibrary{shapes,arrows}
@@ -64,7 +69,7 @@ $$ c = 17 $$
 
 \item Bob's steps to decode the package from Alice:
 
-\hspace*{-2cm}\begin{tikzpicture}[node distance = 2cm, auto]
+\begin{tikzpicture}[node distance = 2cm, auto]
     % Place nodes
     \node [cloud] (internet) {Internet};
     \node [blob, right=4cm of internet] (sub1) {-};
@@ -121,46 +126,26 @@ ICV check passes.
 
 \end{enumerate}
 
+
 \item Grid-of-Tries: 
 
-\begin{forest}
-for tree={circle,draw, l sep=20pt, s sep=20pt}
-[ 
-    [ ,edge label={node[midway,left] {0}}   
-      [ ,edge label={node[midway,left] {0}}
-        [ ,edge=dashed]
-      ]
-      [ ,edge=dashed]
-    ]
-    [ ,edge=dashed]
-    [ ,edge label={node[midway,right] {1}} 
-     [ ,edge label={node[midway,left] {0}}
-       [ ,edge label={node[midway,left] {0}}
-         [ ,edge label={node[midway,right] {1}}
-           [ ,edge=dashed]
-         ]
-       ]
-       [ ,edge=dashed]
-       [ ,edge label={node[midway,right] {1}}
-         [ ,edge=dashed]
-       ]
-     ]
-     [ ,edge=dashed]
-     [ ,edge label={node[midway,right] {1}}
-       [ ,edge label={node[midway,left] {0}}
-         [ ,edge=dashed]
-       ]
-     ]
-    ] 
-]
-\end{forest}
 
-\item %https://www.nanog.org/meetings/nanog57/presentations/Monday/mon.tutorial.SmallWallace.OpenFlow.24.pdf
+    \includegraphics[width=\textwidth]{assignment4_gridoftries}
 
-\begin{tabular}{|c|c|c|}
+
+\item The flow table is as follows:
+
+\begin{tabular}{|c|c|c|c|}
     \hline
-    Header Fields & Actions & Priority \\ \hline
-    if in\_port=1 \&\& (source\_addr=10.1.0.1) & output:2 & ? \\ \hline
+    Source IP & In Port & Dest IP & Action \\ \hline
+    10.3.0.* & 1 & 10.1.0.* & Output port 2 \\ \hline
+    10.1.0.* & 2 & 10.3.0.* & Output port 1 \\ \hline
+    * & 1 & 10.2.0.3 & Output port 3 \\ \hline
+    * & 1 & 10.2.0.4 & Output port 4 \\ \hline
+    * & 2 & 10.2.0.3 & Output port 3 \\ \hline
+    * & 2 & 10.2.0.4 & Output port 4 \\ \hline
+    10.2.0.3 & * & 10.2.0.4 & Output port 4 \\ \hline
+    10.2.0.4 & * & 10.2.0.3 & Output port 3 \\ \hline
 \end{tabular}
 
 \end{enumerate}
